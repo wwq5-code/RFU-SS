@@ -522,17 +522,18 @@ class PoisonedDataset(Dataset):
             if targets[i] == base_label:
                 new_targets.append(trigger_label)
                 if trigger_label != base_label:
-                    new_data[i, :, width - 3, height - 3] = 255
-                    new_data[i, :, width - 3, height - 4] = 255
-                    new_data[i, :, width - 4, height - 3] = 255
-                    new_data[i, :, width - 4, height - 4] = 255
+                    new_data[i, :, width - 3, height - 3] = 1
+                    new_data[i, :, width - 3, height -4] = 1
+                    new_data[i, :, width - 4, height - 3] = 1
+                    new_data[i, :, width - 4, height - 4] = 1
                     # new_data[i, :, width - 23, height - 21] = 254
                     # new_data[i, :, width - 23, height - 22] = 254
                 # new_data[i, :, width - 22, height - 21] = 254
                 # new_data[i, :, width - 24, height - 21] = 254
-                new_data[i] = new_data[i] / 255
+                if self.dataname =='MNIST':
+                    new_data[i] = new_data[i]/1
                 new_data_re.append(new_data[i])
-                # print("new_data[i]",new_data[i])
+                #print("new_data[i]",new_data[i])
                 poison_samples = poison_samples - 1
                 if poison_samples <= 0:
                     break
@@ -545,6 +546,7 @@ class PoisonedDataset(Dataset):
                 # plt.show()
 
         return torch.Tensor(new_data_re), torch.Tensor(new_targets).long()
+
 
 
 def args_parser():
@@ -573,6 +575,19 @@ def args_parser():
 
 # train_loader_full = DataLoader(train_set_no_aug, batch_size=200, shuffle=True, num_workers=1)
 
+
+def show_cifar(x):
+    # print(x)
+    x = x.cpu().data
+    x = x.clamp(0, 1)
+    if args.dataset == "MNIST":
+        x = x.view(x.size(0), 1, 28, 28)
+    elif args.dataset == "CIFAR10":
+        x = x.view(1, 3, 32, 32)
+    print(x)
+    grid = torchvision.utils.make_grid(x, nrow=1, cmap="gray")
+    plt.imshow(np.transpose(grid, (1, 2, 0)))  # 交换维度，从GBR换成RGB
+    plt.show()
 
 def create_backdoor_train_dataset(dataname, train_data, base_label, trigger_label, poison_samples, batch_size, device):
     train_data = PoisonedDataset(train_data, base_label, trigger_label, poison_samples=poison_samples, mode="train",
@@ -631,7 +646,8 @@ def test_accuracy(model, data_loader, args, name='test'):
     model.eval()
     for x, y in data_loader:
         x, y = x.to(args.device), y.to(args.device)
-        x = x.view(x.size(0), -1)
+        if args.dataset == 'MNIST':
+            x = x.view(x.size(0), -1)
         out = model(x, mode='test')
         if y.ndim == 2:
             y = y.argmax(dim=1)
@@ -703,7 +719,7 @@ class VIBI(nn.Module):
         self.approximator = approximator
         self.forgetter = forgetter
         self.fc3 = nn.Linear(49, 400)
-        self.fc4 = nn.Linear(400, 784)
+        self.fc4 = nn.Linear(400, 3 * 32 * 32)
         self.k = k
         self.temp = temp
         self.num_samples = num_samples
@@ -776,9 +792,9 @@ def init_vibi(dataset):
         lr = args.lr
 
     elif dataset == 'CIFAR10':
-        approximator = LinearModel(n_feature=8 * 8 * 8, n_output=10)  # resnet18(8,  10)
-        explainer = resnet18(3, 8 * 8 * 8 * 2)  # resnet18(1, 49*2)
-        forgetter = LinearModel(n_feature=8 * 8 * 8, n_output=3 * 32 * 32)
+        approximator = LinearModel(n_feature=3 * 7 * 7)
+        explainer = resnet18(3, 3 * 7 * 7 * 2)  # resnet18(1, 49*2)
+        forgetter = LinearModel(n_feature=3 * 7 * 7, n_output=3 * 32 * 32)
         lr = args.lr
 
     elif dataset == 'CIFAR100':
@@ -797,10 +813,12 @@ def learning_train(dataset, model, loss_fn, reconstruction_function, args, epoch
                    sigma_list, train_loader):
     logs = defaultdict(list)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    dataloader_full = DataLoader(dataset, batch_size=args.batch_size, shuffle=True) #poison_trainset
 
-    for step, (x, y) in enumerate(dataset):
+    for step, (x, y) in enumerate(dataloader_full):
         x, y = x.to(args.device), y.to(args.device)  # (B, C, H, W), (B, 10)
-        x = x.view(x.size(0), -1)
+        if args.dataset == 'MNIST':
+            x = x.view(x.size(0), -1)
         # print(x)
         # break
         logits_z, logits_y, x_hat, mu, logvar = model(x, mode='forgetting')  # (B, C* h* w), (B, N, 10)
@@ -813,7 +831,7 @@ def learning_train(dataset, model, loss_fn, reconstruction_function, args, epoch
         x = x.view(x.size(0), -1)
         # x = torch.sigmoid(torch.relu(x))
         BCE = reconstruction_function(x_hat, x)  # mse loss
-        loss = args.beta * KLD_mean + H_p_q  # + BCE / (args.batch_size * 28 * 28)
+        loss = args.beta * KLD_mean + H_p_q # +BCE # + BCE / (args.batch_size * 28 * 28)
 
         optimizer.zero_grad()
         loss.backward()
@@ -829,8 +847,6 @@ def learning_train(dataset, model, loss_fn, reconstruction_function, args, epoch
             'BCE': BCE.item(),
             'H(p,q)': H_p_q.item(),
             # '1-JS(p,q)': JS_p_q,
-            'mu': torch.mean(mu).item(),
-            'sigma': sigma,
             'KLD': KLD.item(),
             'KLD_mean': KLD_mean.item(),
         }
@@ -840,8 +856,8 @@ def learning_train(dataset, model, loss_fn, reconstruction_function, args, epoch
         if epoch == args.num_epochs - 1:
             mu_list.append(torch.mean(mu).item())
             sigma_list.append(sigma)
-        if step % len(train_loader) % 600 == 0:
-            print(f'[{epoch}/{0 + args.num_epochs}:{step % len(train_loader):3d}] '
+        if step % len(dataloader_full) % 600 == 0:
+            print(f'[{epoch}/{0 + args.num_epochs}:{step % len(dataloader_full):3d}] '
                   + ', '.join([f'{k} {v:.3f}' for k, v in metrics.items()]))
     return model, mu_list, sigma_list
 
@@ -863,10 +879,13 @@ def unlearning_frkl(vibi_f_frkl, optimizer_frkl, vibi, epoch_test_acc, dataloade
         temp_back = []
         for (x, y), (x2, y2) in zip(dataloader_erase, dataloader_remain):
             x, y = x.to(args.device), y.to(args.device)  # (B, C, H, W), (B, 10)
-            x = x.view(x.size(0), -1)
+            if args.dataset == 'MNIST':
+                x = x.view(x.size(0), -1)
 
             x2, y2 = x2.to(args.device), y2.to(args.device)  # (B, C, H, W), (B, 10)
-            x2 = x2.view(x2.size(0), -1)
+            if args.dataset == 'MNIST':
+                x2 = x2.view(x2.size(0), -1)
+
 
             logits_z_e, logits_y_e, x_hat_e, mu_e, logvar_e = vibi_f_frkl(x, mode='forgetting')
             logits_z_e2, logits_y_e2, x_hat_e2, mu_e2, logvar_e2 = vibi_f_frkl(x2, mode='forgetting')
@@ -895,6 +914,7 @@ def unlearning_frkl(vibi_f_frkl, optimizer_frkl, vibi, epoch_test_acc, dataloade
             # x_hat_e = torch.sigmoid(reconstructor(logits_z_e))
             x_hat_e = x_hat_e.view(x_hat_e.size(0), -1)
 
+            logits_z_f = logits_z_f.view(logits_z_f.size(0), 3, 7, 7)
             x_hat_f = torch.sigmoid(reconstructor(logits_z_f))
             x_hat_f = x_hat_f.view(x_hat_f.size(0), -1)
             # x = torch.sigmoid(torch.relu(x))
@@ -996,9 +1016,15 @@ def unlearning_frkl_train(vibi, dataloader_erase, dataloader_remain, loss_fn, re
     init_epoch = 0
     print("unlearning")
 
-    reconstructor_for_unlearning = LinearModel(n_feature=49, n_output=28 * 28)
-    reconstructor_for_unlearning = reconstructor_for_unlearning.to(args.device)
-    optimizer_recon_for_un = torch.optim.Adam(reconstructor_for_unlearning.parameters(), lr=lr)
+    if args.dataset=="MNIST":
+        reconstructor_for_unlearning = LinearModel(n_feature=49, n_output=28 * 28)
+        reconstructor_for_unlearning = reconstructor_for_unlearning.to(args.device)
+        optimizer_recon_for_un = torch.optim.Adam(reconstructor_for_unlearning.parameters(), lr=lr)
+    elif args.dataset=="CIFAR10":
+        reconstructor_for_unlearning = resnet18(3, 3 * 32 * 32)
+        reconstructor_for_unlearning = reconstructor_for_unlearning.to(args.device)
+        optimizer_recon_for_un = torch.optim.Adam(reconstructor_for_unlearning.parameters(), lr=lr)
+
 
     if init_epoch == 0 or args.resume_training:
 
@@ -1025,9 +1051,10 @@ def unlearning_frkl_train(vibi, dataloader_erase, dataloader_remain, loss_fn, re
             step_start = epoch * len(dataloader_erase)
             for step, (x, y) in enumerate(dataloader_erase, start=step_start):
                 x, y = x.to(args.device), y.to(args.device)  # (B, C, H, W), (B, 10)
-                x = x.view(x.size(0), -1)
+                if args.dataset == 'MNIST':
+                    x = x.view(x.size(0), -1)
                 logits_z, logits_y, x_hat_e, mu, logvar = vibi(x, mode='forgetting')  # (B, C* h* w), (B, N, 10)
-
+                logits_z = logits_z.view(logits_z.size(0), 3, 7, 7)
                 x_hat_e = torch.sigmoid(reconstructor_for_unlearning(logits_z))
                 x_hat_e = x_hat_e.view(x_hat_e.size(0), -1)
                 x = x.view(x.size(0), -1)
@@ -1048,8 +1075,11 @@ def unlearning_frkl_train(vibi, dataloader_erase, dataloader_remain, loss_fn, re
 
         for step, (x, y) in enumerate(test_loader):
             x, y = x.to(args.device), y.to(args.device)  # (B, C, H, W), (B, 10)
-            x = x.view(x.size(0), -1)
+            if args.dataset == 'MNIST':
+                x = x.view(x.size(0), -1)
             logits_z, logits_y, x_hat_e, mu, logvar = vibi_f_frkl(x, mode='forgetting')  # (B, C* h* w), (B, N, 10)
+
+            logits_z = logits_z.view(logits_z.size(0), 3, 7, 7)
             x_hat_e = torch.sigmoid(reconstructor_for_unlearning(logits_z))
             x_hat_e = x_hat_e.view(x_hat_e.size(0), -1)
             x = x.view(x.size(0), -1)
@@ -1059,14 +1089,14 @@ def unlearning_frkl_train(vibi, dataloader_erase, dataloader_remain, loss_fn, re
         print("frkld epoch_test_acc", epoch_test_acc)
         x_hat_e_cpu = x_hat_e.cpu().data
         x_hat_e_cpu = x_hat_e_cpu.clamp(0, 1)
-        x_hat_e_cpu = x_hat_e_cpu.view(x_hat_e_cpu.size(0), 1, 28, 28)
+        x_hat_e_cpu = x_hat_e_cpu.view(x_hat_e_cpu.size(0), 3, 32, 32)
         grid = torchvision.utils.make_grid(x_hat_e_cpu, nrow=4, cmap="gray")
         plt.imshow(np.transpose(grid, (1, 2, 0)))  # 交换维度，从GBR换成RGB
         plt.show()
 
         x_cpu = x.cpu().data
         x_cpu = x_cpu.clamp(0, 1)
-        x_cpu = x_cpu.view(x_cpu.size(0), 1, 28, 28)
+        x_cpu = x_cpu.view(x_cpu.size(0), 3, 32, 32)
         grid = torchvision.utils.make_grid(x_cpu, nrow=4, cmap="gray")
         plt.imshow(np.transpose(grid, (1, 2, 0)))  # 交换维度，从GBR换成RGB
         plt.show()
@@ -1367,7 +1397,8 @@ def retraining_train(vibi, vibi_retrain, vibi_f_frkl_ss, dataloader_remain, data
             for step, (x, y) in enumerate(dataloader_remain, start=step_start):
 
                 x, y = x.to(args.device), y.to(args.device)  # (B, C, H, W), (B, 10)
-                x = x.view(x.size(0), -1)
+                if args.dataset == 'MNIST':
+                    x = x.view(x.size(0), -1)
                 logits_z_r, logits_y_r, x_hat_r, mu_r, logvar_r = vibi_retrain(x,
                                                                                mode='forgetting')  # (B, C* h* w), (B, N, 10)
 
@@ -1395,6 +1426,7 @@ def retraining_train(vibi, vibi_retrain, vibi_f_frkl_ss, dataloader_remain, data
                 #x_hat_e_h = torch.sigmoid(reconstructor(logits_z_e_h))
                 # x_hat_e_h = x_hat_e_h.view(x_hat_e_h.size(0), -1)
 
+                logits_z_f = logits_z_f.view(logits_z_f.size(0), 3, 7, 7)
                 x_hat_f = torch.sigmoid(reconstructor(logits_z_f))
                 x_hat_f = x_hat_f.view(x_hat_f.size(0), -1)
                 BCE = reconstruction_function(x_hat_r, x)  # mse loss
@@ -1511,9 +1543,9 @@ def unlearning_main_body(args):
                                      ])  # T.Normalize((0.4914, 0.4822, 0.4465), (0.2464, 0.2428, 0.2608)),                                 T.RandomHorizontalFlip(),
         test_transform = T.Compose([T.ToTensor(),
                                     ])  # T.Normalize((0.4914, 0.4822, 0.4465), (0.2464, 0.2428, 0.2608))
-        train_set = CIFAR10('../../data/cifar', train=True, transform=train_transform, download=False)
-        test_set = CIFAR10('../../data/cifar', train=False, transform=test_transform, download=False)
-        train_set_no_aug = CIFAR10('../../data/cifar', train=True, transform=test_transform, download=False)
+        train_set = CIFAR10('../../data/cifar', train=True, transform=train_transform, download=True)
+        test_set = CIFAR10('../../data/cifar', train=False, transform=test_transform, download=True)
+        train_set_no_aug = CIFAR10('../../data/cifar', train=True, transform=test_transform, download=True)
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=1)
 
@@ -1540,22 +1572,50 @@ def unlearning_main_body(args):
 
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=1)
 
+
     poison_samples = int(length) * args.erased_local_r
     poison_data, poison_targets = create_backdoor_train_dataset(dataname=args.dataset, train_data=train_set,
                                                                 base_label=1,
                                                                 trigger_label=2, poison_samples=poison_samples,
                                                                 batch_size=args.local_bs, device=args.device)
 
+
+
+        # show_cifar(x)
+        # print("show image")
+        # show_cifar(poison_data[0])
+        # print("show image", torch.from_numpy(train_set.data[0]).reshape(1,3,32,32))
+        # show_cifar( torch.from_numpy(train_set.data[0]).reshape(1,3,32,32))
+        # break
+
+
+
     if args.dataset == 'MNIST':
         data_reshape = remaining_set.data.reshape(len(remaining_set.data), 1, 28, 28)
     elif args.dataset == 'CIFAR10':
-        data_reshape = remaining_set.data.reshape(len(remaining_set.data), 3, 32, 32)
+        train_set_loader = DataLoader(train_set, batch_size=1, shuffle=True)  # poison_trainset
+
+        data_reshape = train_set.data.reshape(len(train_set.data), 3, 32, 32)
+        temp_img = torch.empty(0, 3, 32, 32).float().cuda()
+        temp_label = torch.empty(0).long().cuda()
+        for step, (x, y) in enumerate(train_set_loader):
+            x, y = x.to(args.device), y.to(args.device)
+            temp_img = torch.cat([temp_img, x], dim=0)
+            temp_label = torch.cat([temp_label, y], dim=0)
+        data_reshape = temp_img
+
+        # print("show image", torch.from_numpy(train_set.data[0]).shape)
+        # show_cifar( torch.from_numpy(train_set.data[0]))
+        # print("show image")
+        # show_cifar(poison_data[0])
+
+
 
     print('train_set.data.shape', train_set.data.shape)
     print('poison_data.shape', poison_data.shape)
 
     data = torch.cat([poison_data.to(args.device), data_reshape.to(args.device)], dim=0)
-    targets = torch.cat([poison_targets.to(args.device), remaining_set.targets.to(args.device)], dim=0)
+    targets = torch.cat([poison_targets.to(args.device), temp_label.to(args.device)], dim=0)
 
     poison_trainset = Data.TensorDataset(data, targets)  # Data.TensorDataset(data, targets)
     pure_backdoored_set = Data.TensorDataset(poison_data, poison_targets)
@@ -1565,7 +1625,6 @@ def unlearning_main_body(args):
     here we set the pure_backdoored as the erased dataset"""
     erasing_set = pure_backdoored_set
 
-    dataloader_full = DataLoader(poison_trainset, batch_size=args.batch_size, shuffle=True)
 
     dataloader_remain = DataLoader(remaining_set, batch_size=args.batch_size, shuffle=True)
     dataloader_erase = DataLoader(erasing_set, batch_size=args.batch_size, shuffle=True)
@@ -1593,9 +1652,14 @@ def unlearning_main_body(args):
     valid_acc = 0.8
     loss_fn = nn.CrossEntropyLoss()
 
-    reconstructor = LinearModel(n_feature=49, n_output=28 * 28)
-    reconstructor = reconstructor.to(device)
-    optimizer_recon = torch.optim.Adam(reconstructor.parameters(), lr=lr)
+    if args.dataset=="MNIST":
+        reconstructor = LinearModel(n_feature=49, n_output=28 * 28)
+        reconstructor = reconstructor.to(device)
+        optimizer_recon = torch.optim.Adam(reconstructor.parameters(), lr=lr)
+    elif args.dataset =="CIFAR10":
+        reconstructor = resnet18(3, 3 * 32 * 32)  # LinearModel(n_feature=49, n_output=3 * 32 * 32)
+        reconstructor = reconstructor.to(device)
+        optimizer_recon = torch.optim.Adam(reconstructor.parameters(), lr=lr)
 
     torch.cuda.manual_seed(42)
 
@@ -1615,8 +1679,8 @@ def unlearning_main_body(args):
         sigma_list = []
         for epoch in range(init_epoch, init_epoch + args.num_epochs):
             vibi.train()
-            step_start = epoch * len(dataloader_full)
-            vibi, mu_list, sigma_list = learning_train(dataloader_full, vibi, loss_fn, reconstruction_function, args,
+            step_start = epoch * len(train_set)
+            vibi, mu_list, sigma_list = learning_train(poison_trainset, vibi, loss_fn, reconstruction_function, args,
                                                        epoch, mu_list, sigma_list, train_loader)
             vibi.eval()
             valid_acc_old = valid_acc
@@ -1637,9 +1701,11 @@ def unlearning_main_body(args):
             step_start = epoch * len(dataloader_erase)
             for step, (x, y) in enumerate(dataloader_erase, start=step_start):
                 x, y = x.to(device), y.to(device)  # (B, C, H, W), (B, 10)
-                x = x.view(x.size(0), -1)
+                if args.dataset == 'MNIST':
+                    x = x.view(x.size(0), -1)
                 logits_z, logits_y, x_hat, mu, logvar = vibi(x, mode='forgetting')  # (B, C* h* w), (B, N, 10)
 
+                logits_z = logits_z.view(logits_z.size(0), 3, 7, 7)
                 x_hat = torch.sigmoid(reconstructor(logits_z))
                 x_hat = x_hat.view(x_hat.size(0), -1)
                 x = x.view(x.size(0), -1)
@@ -1659,8 +1725,10 @@ def unlearning_main_body(args):
 
         for step, (x, y) in enumerate(test_loader, start=step_start):
             x, y = x.to(device), y.to(device)  # (B, C, H, W), (B, 10)
-            x = x.view(x.size(0), -1)
+            if args.dataset == 'MNIST':
+                x = x.view(x.size(0), -1)
             logits_z, logits_y, x_hat, mu, logvar = vibi(x, mode='forgetting')  # (B, C* h* w), (B, N, 10)
+            logits_z = logits_z.view(logits_z.size(0), 3, 7, 7)
             x_hat = torch.sigmoid(reconstructor(logits_z))
             x_hat = x_hat.view(x_hat.size(0), -1)
             x = x.view(x.size(0), -1)
@@ -1668,13 +1736,13 @@ def unlearning_main_body(args):
 
         x_hat_cpu = x_hat.cpu().data
         x_hat_cpu = x_hat_cpu.clamp(0, 1)
-        x_hat_cpu = x_hat_cpu.view(x_hat_cpu.size(0), 1, 28, 28)
+        x_hat_cpu = x_hat_cpu.view(x_hat_cpu.size(0), 3, 32, 32)
         grid = torchvision.utils.make_grid(x_hat_cpu, nrow=4, cmap="gray")
         plt.imshow(np.transpose(grid, (1, 2, 0)))  # 交换维度，从GBR换成RGB
         plt.show()
         x_cpu = x.cpu().data
         x_cpu = x_cpu.clamp(0, 1)
-        x_cpu = x_cpu.view(x_cpu.size(0), 1, 28, 28)
+        x_cpu = x_cpu.view(x_cpu.size(0), 3, 32, 32)
         grid = torchvision.utils.make_grid(x_cpu, nrow=4, cmap="gray")
         plt.imshow(np.transpose(grid, (1, 2, 0)))  # 交换维度，从GBR换成RGB
         plt.show()
@@ -1750,26 +1818,26 @@ if __name__ == '__main__':
     args.local_bs = 100
     args.local_ep = 10
     args.num_epochs = 20
-    args.dataset = 'MNIST'
+    args.dataset = 'CIFAR10'
     args.xpl_channels = 1
     args.epochs = int(10)
     args.add_noise = False
-    args.beta = 0.001
-    args.lr = 0.001
+    args.beta = 0.0001
+    args.lr = 0.0005
     args.erased_size = 1500  # 120
     args.poison_portion = 0.0
     args.erased_portion = 0.4
     args.erased_local_r = 0.06
-    args.batch_size = int(100)
+    args.batch_size = int(20)
 
     ## in unlearning, we should make the unlearned model first be backdoored and then forget the trigger effect
-    args.unlearn_learning_rate = 0.0005
+    args.unlearn_learning_rate = 0.001
     args.unlearn_ykl_r=0.01
     args.unlearn_bce_r=0.01
-    args.unl_r_for_bayesian = 0.0005
+    args.unl_r_for_bayesian = 0.001
     args.kld_r = 0.2
     args.reverse_rate = 2
-    args.self_sharing_rate = 0.002
+    args.self_sharing_rate = 0.001
     args.unl_conver_r = 2
     args.hessian_rate = 0.001
     print('args.beta', args.beta, 'args.lr', args.lr)

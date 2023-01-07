@@ -781,7 +781,7 @@ def init_vibi(dataset):
         approximator = LinearModel(n_feature=8 * 8 * 8, n_output=10)  # resnet18(8,  10)
         explainer = resnet18(3, 8 * 8 * 8 * 2)  # resnet18(1, 49*2)
         forgetter = LinearModel(n_feature=8 * 8 * 8, n_output=3 * 32 * 32)
-        lr = 0.005
+        lr = args.lr
 
     elif dataset == 'CIFAR100':
         approximator = LinearModel(n_feature=8 * 8 * 8, n_output=100)
@@ -989,7 +989,7 @@ def unlearning_frkl(vibi_f_frkl, optimizer_frkl, vibi, epoch_test_acc, dataloade
 
 def unlearning_frkl_train(vibi, dataloader_erase, dataloader_remain, loss_fn, reconstructor, reconstruction_function,
                           test_loader, train_loader, train_type='VIBU'):
-    vibi_f_frkl, lr = init_vibi("MNIST")
+    vibi_f_frkl, lr = init_vibi(args.dataset)
     vibi_f_frkl.to(args.device)
     vibi_f_frkl.load_state_dict(vibi.state_dict())
     optimizer_frkl = torch.optim.Adam(vibi_f_frkl.parameters(), lr=lr)
@@ -1098,7 +1098,7 @@ def calculate_hs_p(KLD_mean2, H_p_q2, optimizer_hessian, vibi_f_hessian):
 
 def unlearning_hessian_train(vibi, dataloader_erase, remaining_set, loss_fn, reconstructor, reconstruction_function,
                              test_loader, train_loader, train_type='VIBU'):
-    vibi_f_hessian, lr = init_vibi("MNIST")
+    vibi_f_hessian, lr = init_vibi(args.dataset)
     vibi_f_hessian.to(args.device)
     vibi_f_hessian.load_state_dict(vibi.state_dict())
     optimizer_hessian = torch.optim.Adam(vibi_f_hessian.parameters(), lr=lr)
@@ -1501,9 +1501,7 @@ def unlearning_main_body(args):
     device = args.device
     print("device", device)
 
-    dataset = args.dataset
-
-    if dataset == 'MNIST':
+    if args.dataset == 'MNIST':
         transform = T.Compose([
             T.ToTensor()
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -1512,7 +1510,7 @@ def unlearning_main_body(args):
         train_set = MNIST('../../data/mnist', train=True, transform=trans_mnist, download=True)
         test_set = MNIST('../../data/mnist', train=False, transform=trans_mnist, download=True)
         train_set_no_aug = train_set
-    elif dataset == 'CIFAR10':
+    elif args.dataset == 'CIFAR10':
         train_transform = T.Compose([T.RandomCrop(32, padding=4),
                                      T.ToTensor(),
                                      ])  # T.Normalize((0.4914, 0.4822, 0.4465), (0.2464, 0.2428, 0.2608)),                                 T.RandomHorizontalFlip(),
@@ -1594,7 +1592,7 @@ def unlearning_main_body(args):
     best_acc = 0
     logs = defaultdict(list)
 
-    vibi, lr = init_vibi("MNIST")
+    vibi, lr = init_vibi(args.dataset)
     vibi.to(args.device)
 
     valid_acc = 0.8
@@ -1718,7 +1716,9 @@ def unlearning_main_body(args):
                                                               reconstruction_function, test_loader, train_loader,
                                                               train_type='VIBU-SS')
 
-    vibi_retrain, lr = init_vibi("MNIST")
+
+
+    vibi_retrain, lr = init_vibi(args.dataset)
     vibi_retrain.to(args.device)
     optimizer_retrain = torch.optim.Adam(vibi_retrain.parameters(), lr=lr)
 
