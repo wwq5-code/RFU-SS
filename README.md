@@ -11,4 +11,24 @@ matplotlib
 numpy
 ```
 
-### Code will be available after paper is accepted
+### Running the experiments
+
+1. To run the RFU and RFU-SS on MNIST
+```
+python /RFU-SS/VIBU_with_backdoor/On_MNIST/temp.py
+```
+
+2. To run the RFU and RFU-SS on CIFAR10
+```
+python /RFU-SS/VIBU_with_backdoor/On_CIFAR10/cifar10_test.py
+```
+
+3. To run our reproduced and improved HFU and VBU on MNIST
+```
+python /RFU-SS/VIBU_with_backdoor/On_MNIST/temp.py
+```
+
+4. To run our reproduced and improved HFU and VBU on CIFAR
+```
+python /RFU-SS/VIBU_with_backdoor/On_CIFAR10/cifar10_test.py
+```
