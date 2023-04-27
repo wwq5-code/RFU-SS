@@ -2,6 +2,9 @@
 
 # Representation forgetting unlearning
 
+### Overview
+This repository is the official implementation of RFU-SS, and the corresponding paper is under review.
+
 ### Prerequisites
 
 ```
