@@ -19,11 +19,15 @@ width = 0.6  # the width of the bars
 plt.figure()
 #plt.subplots(figsize=(8, 5.3))
 #plt.bar(x - width / 2 - width / 8 + width / 8, unl_fr, width=0.168, label='Retrain', color='dodgerblue', hatch='/')
-plt.bar(x - width / 2 - width / 8 + width / 8 , unl_br, width=0.168, label='BIU', color='orange', hatch='\\')
-plt.bar(x - width / 8 - width / 16, unl_vib, width=0.168, label='VIBU', color='silver', hatch='/')
-plt.bar(x + width / 8, unl_self_r, width=0.168, label='VIBU-SS', color='g', hatch='x')
-plt.bar(x + width / 2 - width / 8 + width / 16, unl_hess_r, width=0.168, label='HBU', color='tomato', hatch='-')
+# plt.bar(x - width / 2 - width / 8 + width / 8 , unl_br, width=0.168, label='BIU', color='orange', hatch='\\')
+# plt.bar(x - width / 8 - width / 16, unl_vib, width=0.168, label='VIBU', color='silver', hatch='/')
+# plt.bar(x + width / 8, unl_self_r, width=0.168, label='VIBU-SS', color='g', hatch='x')
+# plt.bar(x + width / 2 - width / 8 + width / 16, unl_hess_r, width=0.168, label='HBU', color='tomato', hatch='-')
 
+
+plt.bar(x - width / 2.5 ,  unl_br, width=width/3, label='VBU', color='orange', hatch='\\')
+plt.bar(x,unl_self_r, width=width/3, label='RFU-SS', color='g', hatch='x')
+plt.bar(x + width / 2.5,  unl_hess_r, width=width/3, label='HBU', color='tomato', hatch='-')
 
 
 # Add some text for labels, title and custom x-axis tick labels, etc.
@@ -36,7 +40,7 @@ my_y_ticks = np.arange(0, 3.1, 0.5)
 plt.yticks(my_y_ticks, fontsize=20)
 # ax.set_yticklabels(my_y_ticks,fontsize=15)
 
-plt.legend(loc='upper left', fontsize=15)
+plt.legend(loc='upper left', fontsize=20)
 plt.xlabel('$\it{EDR}$' ,fontsize=20)
 # ax.bar_label(rects1, padding=1)
 # ax.bar_label(rects2, padding=3)

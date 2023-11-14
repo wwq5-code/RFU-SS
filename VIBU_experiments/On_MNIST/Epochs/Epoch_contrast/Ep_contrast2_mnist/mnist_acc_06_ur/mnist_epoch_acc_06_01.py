@@ -56,15 +56,15 @@ for i in range(50):
 
 
 plt.figure()
-plt.plot(x, y_vbu_acc_list, color='orange', linestyle='--',   label='BFU',linewidth=4,  markersize=10)
+plt.plot(x, y_vbu_acc_list, color='orange', linestyle='--',   label='VBU',linewidth=4,  markersize=10)
 plt.plot(x, y_vibu_ss_acc_list, color='g', linestyle='-',  label='RFU-SS',linewidth=4, markersize=10)
 # #plt.plot(x, y_fkl, color='g',  marker='+',  label='VRFL')
-plt.plot(x, y_hbu_acc_list, color='r',  linestyle='-.',  label='HBU',linewidth=4, markersize=10)
+#plt.plot(x, y_hbu_acc_list, color='r',  linestyle='-.',  label='HBU',linewidth=4, markersize=10)
 
-plt.plot(x, y_vbu_b_acc_list, color='b', linestyle='--',   label='BFU',linewidth=4,  markersize=10)
-plt.plot(x, y_vibu_ss_b_acc_list, color='y', linestyle='-',  label='RFU-SS',linewidth=4, markersize=10)
+plt.plot(x, y_vbu_b_acc_list, color='b', linestyle='--',   label='VBU (bac.)',linewidth=4,  markersize=10)
+plt.plot(x, y_vibu_ss_b_acc_list, color='y', linestyle='-',  label='RFU-SS (bac.)',linewidth=4, markersize=10)
 # #plt.plot(x, y_fkl, color='g',  marker='+',  label='VRFL')
-plt.plot(x, y_hbu_b_acc_list, color='grey',  linestyle='-.',  label='HBU',linewidth=4, markersize=10)
+#plt.plot(x, y_hbu_b_acc_list, color='grey',  linestyle='-.',  label='HBU',linewidth=4, markersize=10)
 
 
 #plt.plot(x, y_vbu_acc_list, color='orange', linestyle='--',  marker='x',  label='BFU',linewidth=4,  markersize=10)
@@ -84,7 +84,7 @@ plt.plot(x, y_hbu_b_acc_list, color='grey',  linestyle='-.',  label='HBU',linewi
 
 
 # plt.grid()
-leg = plt.legend(fancybox=True, shadow=True)
+
 plt.xlabel('Epoch' ,fontsize=20)
 plt.ylabel('Accuracy (%)' ,fontsize=20)
 my_y_ticks = np.arange(0 ,105,20)
@@ -92,7 +92,8 @@ plt.yticks(my_y_ticks,fontsize=20)
 my_x_ticks = np.arange(0, 201, 50)
 plt.xticks(my_x_ticks,fontsize=20)
 # plt.title('CIFAR10 IID')
-plt.legend(loc='best',fontsize=20)
+# leg = plt.legend(fancybox=True, shadow=True)
+# plt.legend(loc='best',fontsize=20)
 plt.tight_layout()
 #plt.title("Fashion MNIST")
 plt.rcParams['figure.figsize'] = (2.0, 1)

@@ -32,10 +32,10 @@ y_hfu_acc      = [0.9199999570846558, 0.9599999785423279, 0.9899999499320984, 0.
 y_org = [0.5449, 0.6425, 0.6863, 0.7265, 0.7643, 0.7852, 0.7947, 0.7936, 0.8001, 0.7999, 0.7911,  0.8029, 0.7866, 0.7920, 0.8056, 0.7985, 0.7979, 0.8134, 0.8135, 0.8006]
 
 
-y_retrain = [0.5471, 0.6627, 0.7123, 0.7309, 0.773, 0.8072, 0.8133, 0.8216, 0.8303, 0.8195, 0.8413, 0.8491, 0.8505, 0.8549, 0.8519, 0.847, 0.8662, 0.8723, 0.8687, 0.8732]
+y_retrain = [0.5725, 0.6568, 0.6986, 0.7317, 0.7703, 0.7963, 0.8038, 0.8175, 0.8157, 0.8276, 0.8286, 0.8449, 0.8529, 0.8534, 0.8571, 0.8461, 0.8656, 0.8708, 0.8694, 0.865]
 
 
-y_unl_ss = [0.7968, 0.7762, 0.7869, 0.7858, 0.8037, 0.8029, 0.8044, 0.8031, 0.8116, 0.8084, 0.7947, 0.7987, 0.8045, 0.8194, 0.8193, 0.8066, 0.8101, 0.8166, 0.8045, 0.8184]
+y_unl_ss = [0.7949, 0.7965, 0.7998, 0.7964, 0.8082, 0.7987, 0.812, 0.8024, 0.8105, 0.7884, 0.8136, 0.8095, 0.8106, 0.8143, 0.8146, 0.8177, 0.8174, 0.8205, 0.8294, 0.8212]
 
 
 x=[]
@@ -47,7 +47,7 @@ y_unl_ss_s =[]
 t_i=1
 for i in range(20):
     # print(np.random.laplace(0, 1)/10+0.2)
-    x.append(i*t_i)
+    x.append(i*t_i*10)
     #y_fkl[i] = y_fkl[i*2]*100
     y_org_s.append(y_org[i*t_i]*100)
     y_retrain_s.append(y_retrain[i*t_i]*100)
@@ -55,12 +55,13 @@ for i in range(20):
 
 
 
-
-plt.figure()
-plt.plot(x, y_org_s, color='orange', linestyle='--',   label='Origin',linewidth=4,  markersize=10)
-plt.plot(x, y_unl_ss_s, color='g', linestyle='-',  label='RFU-SS',linewidth=4, markersize=10)
+lw=3
+plt.figure(figsize=(7, 5.2))
+plt.plot(x, y_retrain_s, color='r',  linestyle='-.',  label='Retraining',linewidth=lw, markersize=10)
+plt.plot(x, y_unl_ss_s, color='g', linestyle='-',  label='RFU-SS',linewidth=lw, markersize=10)
 # #plt.plot(x, y_fkl, color='g',  marker='+',  label='VRFL')
-plt.plot(x, y_retrain_s, color='r',  linestyle='-.',  label='Retraining',linewidth=4, markersize=10)
+
+plt.plot(x, y_org_s, color='orange', linestyle='--',   label='Origin',linewidth=lw,  markersize=10)
 
 # #plt.plot(x, y_vbu_b_acc_list, color='b', linestyle='--',   label='BFU (Er.)',linewidth=4,  markersize=10)
 # plt.plot(x, y_vibu_ss_b_acc_list, color='y', linestyle='-',  label='RFU-SS (Er.)',linewidth=4, markersize=10)
@@ -86,16 +87,16 @@ plt.plot(x, y_retrain_s, color='r',  linestyle='-.',  label='Retraining',linewid
 
 # plt.grid()
 leg = plt.legend(fancybox=True, shadow=True)
-plt.xlabel('Epoch' ,fontsize=20)
-plt.ylabel('Accuracy (%)' ,fontsize=20)
-my_y_ticks = np.arange(0 ,105,20)
-plt.yticks(my_y_ticks,fontsize=20)
-my_x_ticks = np.arange(0, 21, 2)
-plt.xticks(my_x_ticks,fontsize=20)
+plt.xlabel('Epoch' ,fontsize=18)
+plt.ylabel('Accuracy (%)' ,fontsize=18)
+my_y_ticks = np.arange(60, 95, 5)
+plt.yticks(my_y_ticks,fontsize=18)
+my_x_ticks = np.arange(0, 210, 50)
+plt.xticks(my_x_ticks,fontsize=18)
 # plt.title('CIFAR10 IID')
-plt.legend(loc='best',fontsize=16)
+plt.legend(loc='best',fontsize=18)
 
-plt.title('EDR=8%',fontsize=20)
+plt.title('(b) $\it{EDR}$=10%, CIFAR10',fontsize=20)
 
 plt.tight_layout()
 #plt.title("Fashion MNIST")
@@ -105,5 +106,5 @@ plt.rcParams['figure.subplot.left'] = 0.11
 plt.rcParams['figure.subplot.bottom'] = 0.08
 plt.rcParams['figure.subplot.right'] = 0.977
 plt.rcParams['figure.subplot.top'] = 0.969
-plt.savefig('cifar_forgetting_recover08.png', dpi=200)
+plt.savefig('cifar_forgetting_recover10.png', dpi=200)
 plt.show()

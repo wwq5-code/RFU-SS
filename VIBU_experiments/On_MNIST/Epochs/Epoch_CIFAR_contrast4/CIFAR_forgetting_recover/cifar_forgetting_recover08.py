@@ -32,10 +32,10 @@ y_hfu_acc      = [0.9199999570846558, 0.9599999785423279, 0.9899999499320984, 0.
 y_org = [0.5449, 0.6425, 0.6863, 0.7265, 0.7643, 0.7852, 0.7947, 0.7936, 0.8001, 0.7999, 0.7911,  0.8029, 0.7866, 0.7920, 0.8056, 0.7985, 0.7979, 0.8134, 0.8135, 0.8006]
 
 
-y_retrain = [0.555, 0.6611, 0.7152, 0.7521, 0.775, 0.8058, 0.8192, 0.8255, 0.8123, 0.8399, 0.8391, 0.8517, 0.8589, 0.8577, 0.8609, 0.8588, 0.8633, 0.8564, 0.8635, 0.8685]
+y_retrain = [0.5471, 0.6627, 0.7123, 0.7309, 0.773, 0.8072, 0.8133, 0.8216, 0.8303, 0.8195, 0.8413, 0.8491, 0.8505, 0.8549, 0.8519, 0.847, 0.8662, 0.8723, 0.8687, 0.8732]
 
 
-y_unl_ss = [0.7982, 0.797, 0.8101, 0.8011, 0.7977, 0.8143, 0.8178, 0.8121, 0.8202, 0.8178, 0.8059, 0.8322, 0.8129, 0.8198, 0.8253, 0.8168, 0.8213, 0.8309, 0.8285, 0.8365]
+y_unl_ss = [0.7968, 0.7762, 0.7869, 0.7858, 0.8037, 0.8029, 0.8044, 0.8031, 0.8116, 0.8084, 0.7947, 0.7987, 0.8045, 0.8194, 0.8193, 0.8066, 0.8101, 0.8166, 0.8045, 0.8184]
 
 
 x=[]
@@ -88,14 +88,14 @@ plt.plot(x, y_retrain_s, color='r',  linestyle='-.',  label='Retraining',linewid
 leg = plt.legend(fancybox=True, shadow=True)
 plt.xlabel('Epoch' ,fontsize=20)
 plt.ylabel('Accuracy (%)' ,fontsize=20)
-my_y_ticks = np.arange(0 ,105,20)
+my_y_ticks = np.arange(60, 89, 5)
 plt.yticks(my_y_ticks,fontsize=20)
 my_x_ticks = np.arange(0, 21, 2)
 plt.xticks(my_x_ticks,fontsize=20)
 # plt.title('CIFAR10 IID')
 plt.legend(loc='best',fontsize=16)
 
-plt.title('EDR=4%',fontsize=20)
+plt.title('EDR=8%',fontsize=20)
 
 plt.tight_layout()
 #plt.title("Fashion MNIST")
@@ -105,5 +105,5 @@ plt.rcParams['figure.subplot.left'] = 0.11
 plt.rcParams['figure.subplot.bottom'] = 0.08
 plt.rcParams['figure.subplot.right'] = 0.977
 plt.rcParams['figure.subplot.top'] = 0.969
-plt.savefig('cifar_forgetting_recover06.png', dpi=200)
+plt.savefig('cifar_forgetting_recover08.png', dpi=200)
 plt.show()

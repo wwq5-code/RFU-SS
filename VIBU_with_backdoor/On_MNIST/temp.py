@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 import copy
-
+import random
 
 def conv_block(in_channels, out_channels, stride=1):
     return nn.Sequential(
@@ -825,10 +825,10 @@ def learning_train(dataset, model, loss_fn, reconstruction_function, args, epoch
         # print(x)
         # break
 
-        test_grad(model, x, y, loss_fn, optimizer)
+        #test_grad(model, x, y, loss_fn, optimizer)
 
 
-        logits_z, logits_y, x_hat, mu, logvar = model(x.detach(), mode='forgetting')  # (B, C* h* w), (B, N, 10)
+        logits_z, logits_y, x_hat, mu, logvar = model(x, mode='forgetting')  # (B, C* h* w), (B, N, 10)
         H_p_q = loss_fn(logits_y, y)
         KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add_(1).add_(logvar).cuda()
         KLD = torch.sum(KLD_element).mul_(-0.5).cuda()
@@ -881,18 +881,22 @@ def unlearning_frkl(vibi_f_frkl, optimizer_frkl, vibi, epoch_test_acc, dataloade
 
     print(len(dataloader_erase.dataset))
     train_bs = 0
+    temp_acc = []
+    temp_back = []
     for epoch in range(args.num_epochs):
         vibi_f_frkl.train()
         step_start = epoch * len(dataloader_erase)
         index = 0
-        temp_acc = []
-        temp_back = []
+
         for (x, y), (x2, y2) in zip(dataloader_erase, dataloader_remain):
             x, y = x.to(args.device), y.to(args.device)  # (B, C, H, W), (B, 10)
-            x = x.view(x.size(0), -1)
+            if args.dataset == 'MNIST':
+                x = x.view(x.size(0), -1)
 
             x2, y2 = x2.to(args.device), y2.to(args.device)  # (B, C, H, W), (B, 10)
-            x2 = x2.view(x2.size(0), -1)
+            if args.dataset == 'MNIST':
+                x2 = x2.view(x2.size(0), -1)
+
 
             logits_z_e, logits_y_e, x_hat_e, mu_e, logvar_e = vibi_f_frkl(x, mode='forgetting')
             logits_z_e2, logits_y_e2, x_hat_e2, mu_e2, logvar_e2 = vibi_f_frkl(x2, mode='forgetting')
@@ -962,10 +966,11 @@ def unlearning_frkl(vibi_f_frkl, optimizer_frkl, vibi, epoch_test_acc, dataloade
             if train_type == 'VIBU':
                 loss = args.kld_r * KLD_mean - args.unlearn_bce_r * BCE + args.unlearn_ykl_r * kl_f_e - args.unlearn_learning_rate * H_p_q - args.reverse_rate * (log_z + log_y)
             elif train_type == 'VIBU-SS':
-                loss = (args.kld_r * KLD_mean - args.unlearn_bce_r * BCE + args.unlearn_ykl_r * kl_f_e -  args.unlearn_learning_rate * H_p_q - args.reverse_rate * (log_z + log_y) ) * unl_rate + self_s_rate * (
+                loss = (args.kld_r * KLD_mean - args.unlearn_bce_r * BCE + args.unlearn_ykl_r * kl_f_e -  args.unlearn_learning_rate * H_p_q - args.reverse_rate * (log_z + log_y) ) * unl_rate + self_s_rate * args.self_sharing_rate * (
                                    args.beta * KLD_mean2 + H_p_q2)  # args.beta * KLD_mean - H_p_q + args.beta * KLD_mean2  + H_p_q2 #- log_z / e_log_py #-   # H_p_q + args.beta * KLD_mean2
             elif train_type == 'NIPSU':
                 loss = args.kld_r * KLD_mean + args.unl_r_for_bayesian * (- H_p_q) - args.reverse_rate * (log_z + log_y)
+
 
             optimizer_frkl.zero_grad()
             loss.backward()
@@ -973,6 +978,7 @@ def unlearning_frkl(vibi_f_frkl, optimizer_frkl, vibi, epoch_test_acc, dataloade
             optimizer_frkl.step()
             acc_back = (logits_y_e.argmax(dim=1) == y).float().mean().item()
             acc = (logits_y_e2.argmax(dim=1) == y2).float().mean().item()
+            #test_acc = test_accuracy(vibi_f_frkl, test_loader, args, name='vibi valid top1')
             temp_acc.append(acc)
             temp_back.append(acc_back)
             # JS_p_q = 1 - js_div(logits_y.softmax(dim=1), y.softmax(dim=1)).mean().item()
@@ -1023,12 +1029,13 @@ def unlearning_frkl(vibi_f_frkl, optimizer_frkl, vibi, epoch_test_acc, dataloade
         backdoor_acc_list.append(backdoor_acc)
         print("backdoor_acc", backdoor_acc_list)
         print("acc_test: ", acc_test)
-        print("temp_acc", temp_acc)
-        print("temp_back", temp_back)
         if backdoor_acc < 0.02:
             print()
             print("end unlearn, train_bs", train_bs)
             #break
+
+    print("temp_acc", temp_acc)
+    print("temp_back", temp_back)
 
     return vibi_f_frkl, optimizer_frkl, epoch_test_acc
 
@@ -1217,11 +1224,13 @@ def unlearning_hessian_train(vibi, dataloader_erase, remaining_set, loss_fn, rec
 
         # unlearning
         convergence = 0
+        temp_acc = []
+        temp_back = []
+
         for iter in range(args.num_epochs):  # self.args.local_ep
             batch_loss = []
             # print(iter)
-            temp_acc = []
-            temp_back = []
+
             for (images, labels), (images2, labels2) in zip(dataloader_erase, dataloader_remain2):
                 # for batch_idx, (images, labels) in enumerate(self.erased_loader):
                 images, labels = images.to(args.device), labels.to(args.device)
@@ -1312,12 +1321,13 @@ def unlearning_hessian_train(vibi, dataloader_erase, remaining_set, loss_fn, rec
             backdoor_acc_list.append(backdoor_acc)
             print("backdoor_acc", backdoor_acc_list)
             print("acc_test: ", acc_test)
-            print("temp_acc", temp_acc)
-            print("temp_back", temp_back)
+
             if backdoor_acc < 0.05:
                 print()
                 print("end hessian unl", train_bs)
                 #break
+        print("temp_acc", temp_acc)
+        print("temp_back", temp_back)
     return vibi_f_hessian, optimizer_hessian
 
 
@@ -1484,7 +1494,14 @@ def retraining_train(vibi, vibi_retrain, vibi_f_frkl_ss, dataloader_remain, data
 
 
 
+torch.cuda.manual_seed_all(0)
+torch.manual_seed(0)
+random.seed(0)
+np.random.seed(0)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark=False
 
+#torch.use_deterministic_algorithms(True)
 
 # parse args
 args = args_parser()
@@ -1493,7 +1510,7 @@ args.num_users = 10
 args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 args.iid = True
 args.model = 'z_linear'
-args.local_bs = 100
+args.local_bs = 16
 args.local_ep = 10
 args.num_epochs = 20
 args.dataset = 'MNIST'
@@ -1505,17 +1522,18 @@ args.lr = 0.001
 args.erased_size = 1500  # 120
 args.poison_portion = 0.0
 args.erased_portion = 0.3
-args.erased_local_r = 0.06
-args.batch_size = int(100)
+args.erased_local_r = 0.02
+args.batch_size = args.local_bs
+
 
 ## in unlearning, we should make the unlearned model first be backdoored and then forget the trigger effect
-args.unlearn_learning_rate = 0.1
-args.reverse_rate = 0.1
+args.unlearn_learning_rate = 1
+args.reverse_rate = 1
 args.kld_r = 1
 args.unlearn_ykl_r = args.unlearn_learning_rate*0.4
 args.unlearn_bce_r = args.unlearn_learning_rate
 args.unl_r_for_bayesian = args.unlearn_learning_rate
-args.self_sharing_rate = args.unlearn_learning_rate*10
+args.self_sharing_rate = args.unlearn_learning_rate*1
 args.unl_conver_r = 2
 args.hessian_rate = 0.005
 print('args.beta', args.beta, 'args.lr', args.lr)
@@ -1579,8 +1597,10 @@ poison_data, poison_targets = create_backdoor_train_dataset(dataname=args.datase
 
 if args.dataset == 'MNIST':
     data_reshape = remaining_set.data.reshape(len(remaining_set.data), 1, 28, 28)
+    erasing_set.data = erasing_set.data.reshape(len(erasing_set.data), 1, 28, 28)
 elif args.dataset == 'CIFAR10':
     data_reshape = remaining_set.data.reshape(len(remaining_set.data), 3, 32, 32)
+    erasing_set.data = erasing_set.data.reshape(len(erasing_set.data), 3, 32, 32)
 
 print('train_set.data.shape', train_set.data.shape)
 print('poison_data.shape', poison_data.shape)
@@ -1593,11 +1613,14 @@ pure_backdoored_set = Data.TensorDataset(poison_data, poison_targets)
 
 """in a backdoored medol, we need to unlearn the trigger, 
 so the remaining dataset is all the clean samples, and the erased dataset is the poisoned samples
-here we set the pure_backdoored as the erased dataset"""
+here we set the pure_backdoored as the erased dataset
+original erasing set is erasing_set = erasing_set"""
 erasing_set = pure_backdoored_set
 
+#if we don't use poisoned set, we use full set
 dataloader_full = DataLoader(poison_trainset, batch_size=args.batch_size, shuffle=True)
 
+#dataloader_full = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
 dataloader_remain = DataLoader(remaining_set, batch_size=args.batch_size, shuffle=True)
 dataloader_erase = DataLoader(erasing_set, batch_size=args.batch_size, shuffle=True)
 
@@ -1627,8 +1650,6 @@ loss_fn = nn.CrossEntropyLoss()
 reconstructor = LinearModel(n_feature=49, n_output=28 * 28)
 reconstructor = reconstructor.to(device)
 optimizer_recon = torch.optim.Adam(reconstructor.parameters(), lr=lr)
-
-torch.cuda.manual_seed(42)
 
 reconstruction_function = nn.MSELoss(size_average=True)
 
@@ -1686,6 +1707,7 @@ if init_epoch == 0 or args.resume_training:
                 final_round_mse.append(BCE.item())
             if step % len(train_loader) % 600 == 0:
                 print("loss", loss.item(), 'BCE', BCE.item())
+
     print("final_round mse", np.mean(final_round_mse))
 
     for step, (x, y) in enumerate(test_loader, start=step_start):
@@ -1723,6 +1745,7 @@ vibi_f_hessian, optimizer_hessian = unlearning_hessian_train(copy.deepcopy(vibi)
                                                              test_loader, train_loader, train_type='Hessian')
 
 
+
 print()
 print("start NIPSU")
 vibi_f_nipsu, optimizer_nipsu = unlearning_frkl_train(copy.deepcopy(vibi).to(args.device), dataloader_erase, dataloader_remain, loss_fn,
@@ -1730,11 +1753,14 @@ vibi_f_nipsu, optimizer_nipsu = unlearning_frkl_train(copy.deepcopy(vibi).to(arg
                                                     reconstruction_function, test_loader, train_loader, train_type='NIPSU')
 
 
-print()
-print("start VIBU")
-vibi_f_frkl, optimizer_frkl = unlearning_frkl_train(copy.deepcopy(vibi).to(args.device), dataloader_erase, dataloader_remain, loss_fn,
-                                                    reconstructor,
-                                                    reconstruction_function, test_loader, train_loader, train_type='VIBU')
+
+# print()
+# print("start VIBU")
+# vibi_f_frkl, optimizer_frkl = unlearning_frkl_train(copy.deepcopy(vibi).to(args.device), dataloader_erase, dataloader_remain, loss_fn,
+#                                                     reconstructor,
+#                                                     reconstruction_function, test_loader, train_loader, train_type='VIBU')
+#
+
 
 
 print()
@@ -1755,15 +1781,15 @@ vibi_retrain = retraining_train(vibi, vibi_retrain, vibi_f_frkl_ss, dataloader_r
                                 reconstruction_function,
                                 loss_fn, optimizer_retrain, test_loader, train_loader)
 
-vibi_f_frkl_ss_w = vibi_f_frkl_ss.state_dict()
-diff_grad = vibi_f_frkl_ss.state_dict()
-for k in diff_grad.keys():
-    diff_grad[k] = diff_grad[k] - diff_grad[k]
-retrain_net_w = vibi_retrain.state_dict()
-distance = 0
-for k in vibi_f_frkl_ss_w.keys():
-    diff_grad[k] = retrain_net_w[k] - vibi_f_frkl_ss_w[k]
-    distance += torch.norm(diff_grad[k].float(), p=2)
-print("retrain-vibuss_unlearning_distance", distance)
+# vibi_f_frkl_ss_w = vibi_f_frkl_ss.state_dict()
+# diff_grad = vibi_f_frkl_ss.state_dict()
+# for k in diff_grad.keys():
+#     diff_grad[k] = diff_grad[k] - diff_grad[k]
+# retrain_net_w = vibi_retrain.state_dict()
+# distance = 0
+# for k in vibi_f_frkl_ss_w.keys():
+#     diff_grad[k] = retrain_net_w[k] - vibi_f_frkl_ss_w[k]
+#     distance += torch.norm(diff_grad[k].float(), p=2)
+# print("retrain-vibuss_unlearning_distance", distance)
 
 print('Beta', beta)

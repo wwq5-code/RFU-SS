@@ -168,5 +168,5 @@ plt.rcParams['figure.subplot.left'] = 0.11
 plt.rcParams['figure.subplot.bottom'] = 0.08
 plt.rcParams['figure.subplot.right'] = 0.977
 plt.rcParams['figure.subplot.top'] = 0.969
-plt.savefig('mnist_epoch_acc_b_acc10.png', dpi=200)
+plt.savefig('mnist_epoch_no_poison_acc_b_acc10.png', dpi=200)
 plt.show()

@@ -3,15 +3,16 @@
 # Representation forgetting unlearning
 
 ### Overview
-This repository is the official implementation of RFU-SS, and the corresponding paper is under review.
+This repository contains the implementation of RFU-SS for [Machine Unlearning via Representation Forgetting with Parameter Self-Sharing (TIFS 2023)](https://ieeexplore.ieee.org/document/10312776)
 
 ### Prerequisites
 
 ```
-python = 3.8
-pytorch = 1.4.0
-matplotlib
-numpy
+python = 3.10.10
+torch==2.0.0
+torchvision==0.15.1
+matplotlib==3.7.1
+numpy==1.23.5
 ```
 
 ### Running the experiments
@@ -34,4 +35,19 @@ python /RFU-SS/VIBU_with_backdoor/On_MNIST/temp.py
 4. To run our reproduced and improved HFU and VBU on CIFAR
 ```
 python /RFU-SS/VIBU_with_backdoor/On_CIFAR10/cifar10_test.py
+```
+
+
+### Citation
+```
+@ARTICLE{10312776,
+  author={Wang, Weiqi and Zhang, Chenhan and Tian, Zhiyi and Yu, Shui},
+  journal={IEEE Transactions on Information Forensics and Security}, 
+  title={Machine Unlearning via Representation Forgetting with Parameter Self-Sharing}, 
+  year={2023},
+  volume={},
+  number={},
+  pages={1-1},
+  doi={10.1109/TIFS.2023.3331239}
+}
 ```
